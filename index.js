@@ -37,12 +37,14 @@ app.get('/status-mp3', (req, res) => {
         '--extract-audio',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
+        '--cookies', path.resolve(__dirname, 'cookies.txt'), // <--- USA LAS COOKIES
+        '--js-runtimes', 'deno',                              // <--- USA DENO
+        '--no-cache-dir',
         '--embed-metadata',
         '--embed-thumbnail',
-        '--js-runtimes', 'node',
         '--restrict-filenames',
-        '--newline',              // Fuerza logs línea por línea
-        '--progress',             // Obliga a mostrar el progreso aunque haya --print
+        '--newline',
+        '--progress',
         '--print', 'after_move:filepath',
         '-o', path.join(TEMP_DIR, '%(title)s.%(ext)s'),
         videoUrl
