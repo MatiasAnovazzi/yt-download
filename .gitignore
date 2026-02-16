@@ -1,0 +1,11 @@
+# Dependencias
+node_modules/
+
+# Archivos temporales de descarga
+temp/
+*.mp3
+*.mp4
+
+# Logs y variables de entorno
+npm-debug.log*
+.env
