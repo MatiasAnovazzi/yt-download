@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT to MP3 Downloader</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f4f9; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        input { width: 100%; padding: 10px; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 1.5rem; font-weight: bold; color: #555; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; display: none; margin: 10px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Descargar MP3</h2>
+    <input type="text" id="videoUrl" placeholder="Pega el link de YouTube aquí...">
+    <button id="btnDescargar" onclick="iniciarDescarga()">Convertir y Descargar</button>
+    
+    <div id="loader" class="loader"></div>
+    <p id="status">Esperando URL...</p>
+</div>
+
+<script>
+    function iniciarDescarga() {
+    const urlInput = document.getElementById('videoUrl');
+    const status = document.getElementById('status');
+    const btn = document.getElementById('btnDescargar');
+    const loader = document.getElementById('loader');
+    const url = urlInput.value.trim();
+
+    if (!url) {
+        alert("Por favor, pega una URL válida de YouTube.");
+        return;
+    }
+
+    // 1. Preparar la interfaz
+    btn.disabled = true;
+    if (loader) loader.style.display = "block";
+    status.innerText = "Conectando con el servidor...";
+
+    // 2. Abrir la conexión SSE hacia el servidor de Express
+    // Usamos ruta relativa para que funcione en localhost:3000
+    const eventSource = new EventSource(`/status-mp3?url=${encodeURIComponent(url)}`);
+
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log("Estado recibido:", data.estado); // Para depurar en F12
+
+        if (data.estado === 'generando') {
+            status.innerText = "Procesando audio... (esto puede tardar)";
+        }
+
+        if (data.estado === 'listo') {
+            status.innerText = "¡Listo! Iniciando descarga...";
+            eventSource.close();
+            
+            // 3. Disparar la descarga automática
+            // Esto le dice al navegador que pida el archivo al puerto 3000
+            window.location.href = `/descargar-archivo/${data.id}`;
+            
+            // Resetear la interfaz después de que empiece la descarga
+            setTimeout(() => {
+                resetUI();
+                status.innerText = "Descarga completada.";
+            }, 3000);
+        }
+
+        if (data.estado === 'error') {
+            status.innerText = "Error al procesar el video. Revisa la consola del servidor.";
+            eventSource.close();
+            resetUI();
+        }
+    };
+
+    eventSource.onerror = (err) => {
+        console.error("Error en SSE:", err);
+        status.innerText = "Error de conexión con el servidor.";
+        eventSource.close();
+        resetUI();
+    };
+
+    function resetUI() {
+        btn.disabled = false;
+        if (loader) loader.style.display = "none";
+    }
+}
+</script>
+
+</body>
+</html>
