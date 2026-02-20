@@ -1,96 +1,235 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YT to MP3 Downloader</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f4f9; margin: 0; }
-        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        input { width: 100%; padding: 10px; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
-        button:disabled { background: #ccc; }
-        #status { margin-top: 1.5rem; font-weight: bold; color: #555; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; display: none; margin: 10px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f4f4f9;
+            margin: 0;
+        }
+
+        .wave-progress {
+            margin: 5% auto 0 auto;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            background: #e0e0e0;
+        }
+
+        .wave {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: #ff0000;
+            top: 100%;
+            left: -50%;
+            border-radius: 40%;
+            animation: wave 5s infinite linear;
+            transition: top 1.2s ease-in-out;
+        }
+
+        .wave:nth-child(2) {
+            animation-duration: 8s;
+            opacity: 0.5;
+        }
+
+        .percentage {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            color: white;
+        }
+
+        @keyframes wave {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #ff0000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        button:disabled {
+            background: #ccc;
+        }
+
+        #status {
+            margin-top: 1.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            display: none;
+            margin: 10px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
+
 <body>
 
-<div class="card">
-    <h2>Descargar MP3</h2>
-    <input type="text" id="videoUrl" placeholder="Pega el link de YouTube aquí...">
-    <button id="btnDescargar" onclick="iniciarDescarga()">Convertir y Descargar</button>
-    
-    <div id="loader" class="loader"></div>
-    <p id="status">Esperando URL...</p>
-</div>
+    <div class="card">
+        <h2>Descargar MP3</h2>
+        <input type="text" id="videoUrl" placeholder="Pega el link de YouTube aquí...">
+        <button id="btnDescargar" onclick="iniciarDescarga()">Convertir y Descargar</button>
 
-<script>
-    function iniciarDescarga() {
-    const urlInput = document.getElementById('videoUrl');
-    const status = document.getElementById('status');
-    const btn = document.getElementById('btnDescargar');
-    const loader = document.getElementById('loader');
-    const url = urlInput.value.trim();
+        <div class="wave-progress" data-progress="75">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="percentage">0%</div>
+        </div>
+        <p id="status">Esperando URL...</p>
+    </div>
 
-    if (!url) {
-        alert("Por favor, pega una URL válida de YouTube.");
-        return;
-    }
+    <script>
+        const progress = document.querySelector('.wave-progress');
+        function setWaveProgress(element, value) {
+            value = Math.max(0, Math.min(100, value)); // limitar 0-100
 
-    // 1. Preparar la interfaz
-    btn.disabled = true;
-    if (loader) loader.style.display = "block";
-    status.innerText = "Conectando con el servidor...";
+            element.dataset.progress = value;
 
-    // 2. Abrir la conexión SSE hacia el servidor de Express
-    // Usamos ruta relativa para que funcione en localhost:3000
-    const eventSource = new EventSource(`/status-mp3?url=${encodeURIComponent(url)}`);
+            element.querySelectorAll('.wave').forEach(wave => {
+                wave.style.top = `${100 - value}%`;
+            });
 
-    eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log("Estado recibido:", data.estado); // Para depurar en F12
-
-        if (data.estado === 'generando') {
-            status.innerText = "Procesando audio... (esto puede tardar)";
+            element.querySelector('.percentage').textContent = value + '%';
         }
+        function iniciarDescarga() {
+            const urlInput = document.getElementById('videoUrl');
+            const status = document.getElementById('status');
+            const btn = document.getElementById('btnDescargar');
+            const loader = document.getElementById('loader');
+            const url = urlInput.value.trim();
 
-        if (data.estado === 'listo') {
-            status.innerText = "¡Listo! Iniciando descarga...";
-            eventSource.close();
-            
-            // 3. Disparar la descarga automática
-            // Esto le dice al navegador que pida el archivo al puerto 3000
-            window.location.href = `/descargar-archivo/${data.id}`;
-            
-            // Resetear la interfaz después de que empiece la descarga
-            setTimeout(() => {
+            if (!url) {
+                alert("Por favor, pega una URL válida de YouTube.");
+                return;
+            }
+
+            // 1. Preparar la interfaz
+            btn.disabled = true;
+            if (loader) loader.style.display = "block";
+            status.innerText = "Conectando con el servidor...";
+
+            // 2. Abrir la conexión SSE hacia el servidor de Express
+            // Usamos ruta relativa para que funcione en localhost:3000
+            const eventSource = new EventSource(`/status-mp3?url=${encodeURIComponent(url)}`);
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log("Estado recibido:", data.estado); // Para depurar en F12
+                if (data.estado === 'generando') {
+                    status.innerText = "Procesando audio... (esto puede tardar)";
+                }
+
+                if (data.estado === 'listo') {
+                    status.innerText = "¡Listo! Iniciando descarga...";
+                    eventSource.close();
+
+                    // 3. Disparar la descarga automática
+                    // Esto le dice al navegador que pida el archivo al puerto 3000
+                    window.location.href = `/descargar-archivo/${data.id}`;
+
+                    // Resetear la interfaz después de que empiece la descarga
+                    setTimeout(() => {
+                        resetUI();
+                        status.innerText = "Descarga completada.";
+                    }, 3000);
+                }
+
+                if (data.estado === 'error') {
+                    status.innerText = "Error al procesar el video. Revisa la consola del servidor.";
+                    eventSource.close();
+                    resetUI();
+                }
+                if (data.estado !== "generando" && data.estado !== "listo" && data.estado !== "error") {
+                    let segmento = data.estado.slice(11, 17);
+                    let coincidencia = segmento.match(/(\d+(\.\d+)?)/);
+                    if (coincidencia) {
+                        let valorDecimal = parseFloat(coincidencia[0]) / 100;
+                        setWaveProgress(progress, valorDecimal * 100);
+                    }
+                    
+                }
+            };
+
+            eventSource.onerror = (err) => {
+                console.error("Error en SSE:", err);
+                status.innerText = "Error de conexión con el servidor.";
+                eventSource.close();
                 resetUI();
-                status.innerText = "Descarga completada.";
-            }, 3000);
+            };
+
+            function resetUI() {
+                btn.disabled = false;
+                if (loader) loader.style.display = "none";
+            }
         }
-
-        if (data.estado === 'error') {
-            status.innerText = "Error al procesar el video. Revisa la consola del servidor.";
-            eventSource.close();
-            resetUI();
-        }
-    };
-
-    eventSource.onerror = (err) => {
-        console.error("Error en SSE:", err);
-        status.innerText = "Error de conexión con el servidor.";
-        eventSource.close();
-        resetUI();
-    };
-
-    function resetUI() {
-        btn.disabled = false;
-        if (loader) loader.style.display = "none";
-    }
-}
-</script>
+    </script>
 
 </body>
+
 </html>

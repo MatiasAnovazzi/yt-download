@@ -54,6 +54,7 @@ app.get('/status-mp3', (req, res) => {
         '--cookies', COOKIES_PATH, // <--- Usamos el archivo generado
         '--js-runtimes', 'deno',   // O 'deno' si actualizaste el Dockerfile
         '--no-cache-dir',
+
         '--embed-metadata',
         '--embed-thumbnail',
         '--restrict-filenames',
@@ -74,6 +75,7 @@ app.get('/status-mp3', (req, res) => {
             const l = linea.trim();
             if (!l) return;
             if (l.includes(TEMP_DIR)) rutaFinalAbsoluta = l;
+            if (l.includes("[download]")) res.write(`data: ${JSON.stringify({ estado: l })}\n\n`);
             console.log(`[yt-dlp]: ${l}`);
         });
     });
@@ -98,6 +100,7 @@ app.get('/status-mp3', (req, res) => {
 });
 
 app.get('/descargar-archivo/:id', (req, res) => {
+    console.log(archivosParaDescargar)
     const nombreArchivo = archivosParaDescargar.get(req.params.id);
     const rutaCompleta = path.join(TEMP_DIR, nombreArchivo || '');
 
