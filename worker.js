@@ -1,4 +1,4 @@
-require('dotenv').config();
+
 const { Worker } = require('bullmq');
 const { connection } = require('./queue');
 const { spawn } = require('child_process');
