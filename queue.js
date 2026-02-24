@@ -1,18 +1,21 @@
 const { Queue } = require('bullmq');
-const Redis = require('ioredis');
+const IORedis = require('ioredis');
 
-const connection = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null
-});
-connection.on('connect', () => {
-  console.log('✅ Conectado a Redis');
+if (!process.env.REDIS_URL) {
+  throw new Error("❌ REDIS_URL no está definida");
+}
+
+// Crear cliente Redis usando URL completa
+const connection = new IORedis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: null, // 🔥 necesario para BullMQ
+  enableReadyCheck: false
 });
 
-connection.on('error', (err) => {
-  console.error('❌ Error Redis:', err);
-});
-const downloadQueue = new Queue('mp3-download', {
+// Crear cola
+const downloadQueue = new Queue('downloads', {
   connection
 });
+
+console.log("✅ Conectado a Redis Cloud");
 
 module.exports = { downloadQueue, connection };
