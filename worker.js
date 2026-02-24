@@ -14,61 +14,44 @@ connection.on('connect', () => {
 connection.on('error', (err) => {
   console.error("❌ Error Redis:", err);
 });
-const TEMP_DIR = path.resolve(__dirname, 'temp');
 
-new Worker('mp3-download', async job => {
+new Worker(
+  'downloads',
+  async job => {
 
-  const videoUrl = job.data.url;
+    const outputPath = path.join(__dirname, `${job.id}.mp3`);
 
-  let rutaFinalAbsoluta = "";
+    return new Promise((resolve, reject) => {
 
-  const args = [
-    '--extract-audio',
-    '--audio-format', 'mp3',
-    '--audio-quality', '0',
-    '--print', 'after_move:filepath',
-    '--no-cache-dir',
-    '-o', path.join(TEMP_DIR, '%(title)s.%(ext)s'),
-    videoUrl
-  ];
+      const ytdlp = spawn('yt-dlp', [
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '5',
+        '-o', outputPath,
+        job.data.url
+      ]);
 
-  return new Promise((resolve, reject) => {
+      // 🔥 AGREGAR ESTO AQUÍ
+      ytdlp.stdout.on('data', data => {
+        console.log("YT-DLP STDOUT:", data.toString());
+      });
 
-    const processSpawn = spawn('yt-dlp', args);
+      ytdlp.stderr.on('data', data => {
+        console.log("YT-DLP STDERR:", data.toString());
+      });
 
-    processSpawn.stdout.on('data', (data) => {
-      const lineas = data.toString().split('\n');
-      lineas.forEach(linea => {
-        const l = linea.trim();
-        if (!l) return;
-        if (l.includes(TEMP_DIR)) {
-          rutaFinalAbsoluta = l;
+      ytdlp.on('close', code => {
+        if (code === 0) {
+          resolve({ file: outputPath });
+        } else {
+          reject(new Error('Error en yt-dlp'));
         }
       });
-    });
-
-    processSpawn.on('close', (code) => {
-
-      if (code === 0 && rutaFinalAbsoluta && fs.existsSync(rutaFinalAbsoluta)) {
-
-        const nombreArchivo = path.basename(rutaFinalAbsoluta);
-
-        console.log("✅ Archivo generado:", nombreArchivo);
-
-        // 🔥 ESTA ES LA PARTE IMPORTANTE
-        resolve({
-          filename: nombreArchivo
-        });
-
-      } else {
-        reject(new Error("Error al procesar descarga"));
-      }
 
     });
-
-  });
-
-}, {
-  connection,
-  concurrency: 5
-});
+  },
+  {
+    connection,
+    concurrency: 3
+  }
+);
