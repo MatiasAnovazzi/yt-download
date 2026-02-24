@@ -69,36 +69,26 @@ app.get('/job-status/:id', async (req, res) => {
 });
 
 app.get('/descargar-archivo/:id', async (req, res) => {
+  const job = await downloadQueue.getJob(req.params.id);
+  if (!job) return res.status(404).send('No encontrado');
 
-    const job = await downloadQueue.getJob(req.params.id);
+  const result = job.returnvalue;
 
-    if (!job) return res.status(404).send("Job no encontrado");
+  if (!result?.file) {
+    return res.status(404).send('Archivo no listo');
+  }
 
-    if (job.finishedOn === null)
-        return res.status(400).send("Aún no terminado");
+  const fs = require('fs');
 
-    const result = job.returnvalue;
+  if (!fs.existsSync(result.file)) {
+    return res.status(404).send('Archivo no encontrado');
+  }
 
-    if (!result || !result.filename)
-        return res.status(404).send("Archivo no disponible");
-
-    const rutaCompleta = path.join(__dirname, 'temp', result.filename);
-
-    if (fs.existsSync(rutaCompleta)) {
-
-        res.download(rutaCompleta, result.filename, (err) => {
-            if (!err) {
-                try {
-                    fs.unlinkSync(rutaCompleta);
-                } catch (e) {
-                    console.error("Error borrando:", e);
-                }
-            }
-        });
-
-    } else {
-        res.status(404).send("Archivo no encontrado.");
+  res.download(result.file, err => {
+    if (!err) {
+      fs.unlinkSync(result.file);
     }
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
