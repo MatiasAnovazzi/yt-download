@@ -84,13 +84,12 @@ app.get('/descargar-archivo/:id', async (req, res) => {
     return res.status(404).send('Archivo no encontrado');
   }
 
-  res.download(result.file, err => {
+  res.download(result.file, result.filename, err => {
     if (!err) {
       fs.unlinkSync(result.file);
     }
   });
 });
-
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor en puerto ${PORT}`);
 });

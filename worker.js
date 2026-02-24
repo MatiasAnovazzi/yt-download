@@ -1,55 +1,65 @@
-
+require('dotenv').config();
 const { Worker } = require('bullmq');
 const { connection } = require('./queue');
 const { spawn } = require('child_process');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
 console.log("🚀 Iniciando worker...");
 
-const worker = new Worker(
+new Worker(
   'downloads',
   async job => {
 
     console.log(`📥 Procesando job ${job.id}`);
-    console.log("URL:", job.data.url);
 
-    const outputPath = path.join('/tmp', `${job.id}.mp3`);
+    const outputTemplate = `/tmp/${job.id}-%(title)s.%(ext)s`;
 
     return new Promise((resolve, reject) => {
 
       const ytdlp = spawn('yt-dlp', [
+        job.data.url,
+
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '5',
-        '-o', outputPath,
-        job.data.url
+
+        '--embed-metadata',
+        '--embed-thumbnail',
+        '--add-metadata',
+
+        '--no-playlist',
+
+        '-o', outputTemplate
       ]);
 
-      // 🔍 Logs detallados
-      ytdlp.stdout.on('data', data => {
-        console.log("YT-DLP STDOUT:", data.toString());
-      });
-
       ytdlp.stderr.on('data', data => {
-        console.log("YT-DLP STDERR:", data.toString());
-      });
-
-      ytdlp.on('error', err => {
-        console.error("❌ Error al ejecutar yt-dlp:", err);
-        reject(err);
+        console.log("YT-DLP:", data.toString());
       });
 
       ytdlp.on('close', code => {
-        console.log(`🔚 yt-dlp terminó con código ${code}`);
 
-        if (code === 0 && fs.existsSync(outputPath)) {
-          console.log("✅ Archivo generado:", outputPath);
-          resolve({ file: outputPath });
-        } else {
-          console.error("❌ Falló la conversión");
-          reject(new Error('Error en yt-dlp'));
+        if (code !== 0) {
+          return reject(new Error("yt-dlp falló"));
         }
+
+        // 🔍 buscar el archivo generado
+        const files = fs.readdirSync('/tmp');
+        const file = files.find(f => f.startsWith(`${job.id}-`) && f.endsWith('.mp3'));
+
+        if (!file) {
+          return reject(new Error("No se encontró el archivo generado"));
+        }
+
+        const fullPath = path.join('/tmp', file);
+
+        console.log("✅ Archivo listo:", fullPath);
+
+        resolve({
+          file: fullPath,
+          filename: file
+        });
+
       });
 
     });
@@ -60,17 +70,4 @@ const worker = new Worker(
   }
 );
 
-// Eventos globales del worker
-worker.on('completed', job => {
-  console.log(`✅ Job ${job.id} completado`);
-});
-
-worker.on('failed', (job, err) => {
-  console.error(`❌ Job ${job?.id} falló:`, err.message);
-});
-
-worker.on('error', err => {
-  console.error("🔥 Error crítico del worker:", err);
-});
-
-console.log("👷 Worker listo y esperando trabajos...");
+console.log("👷 Worker listo");
