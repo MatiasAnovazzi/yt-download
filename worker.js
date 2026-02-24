@@ -14,7 +14,7 @@ const worker = new Worker(
     console.log(`📥 Procesando job ${job.id}`);
     console.log("URL:", job.data.url);
 
-    const outputPath = path.join(__dirname, `${job.id}.mp3`);
+    const outputPath = path.join('/tmp', `${job.id}.mp3`);
 
     return new Promise((resolve, reject) => {
 
