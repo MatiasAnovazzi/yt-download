@@ -1,9 +1,8 @@
 const express = require('express');
-const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
-
+const { downloadQueue } = require('./queue');
 const app = express();
 // Railway asigna el puerto automáticamente en process.env.PORT
 const PORT = process.env.PORT || 3000;
@@ -33,86 +32,69 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get('/status-mp3', (req, res) => {
+app.get('/status-mp3', async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) return res.status(400).send("URL requerida");
 
-    prepararCookies(); // Escribimos el archivo antes de llamar a yt-dlp
-
-    const idTransaccion = Date.now().toString();
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    res.write(`data: ${JSON.stringify({ estado: 'generando' })}\n\n`);
-
-    const args = [
-        '--extract-audio',
-        '--audio-format', 'mp3',
-        '--audio-quality', '0',
-        '--cookies', COOKIES_PATH, // <--- Usamos el archivo generado
-        '--js-runtimes', 'deno',   // O 'deno' si actualizaste el Dockerfile
-        '--no-cache-dir',
-
-        '--embed-metadata',
-        '--embed-thumbnail',
-        '--restrict-filenames',
-        '--newline',
-        '--progress',
-        '--print', 'after_move:filepath',
-        '-o', path.join(TEMP_DIR, '%(title)s.%(ext)s'),
-        videoUrl
-    ];
-
-    const processSpawn = spawn('yt-dlp', args);
-
-    let rutaFinalAbsoluta = "";
-
-    processSpawn.stdout.on('data', (data) => {
-        const lineas = data.toString().split('\n');
-        lineas.forEach(linea => {
-            const l = linea.trim();
-            if (!l) return;
-            if (l.includes(TEMP_DIR)) rutaFinalAbsoluta = l;
-            if (l.includes("[download]")) res.write(`data: ${JSON.stringify({ estado: l })}\n\n`);
-            console.log(`[yt-dlp]: ${l}`);
+    try {
+        const job = await downloadQueue.add('download', {
+            url: videoUrl
         });
-    });
 
-    processSpawn.stderr.on('data', (data) => {
-        console.error(`[yt-dlp Error]: ${data.toString().trim()}`);
-    });
+        res.json({ jobId: job.id });
 
-    processSpawn.on('close', (code) => {
-        setTimeout(() => {
-            if (code === 0 && rutaFinalAbsoluta && fs.existsSync(rutaFinalAbsoluta)) {
-                const nombreArchivo = path.basename(rutaFinalAbsoluta);
-                archivosParaDescargar.set(idTransaccion, nombreArchivo);
-                console.log(`✅ Listo: ${nombreArchivo}`);
-                res.write(`data: ${JSON.stringify({ estado: 'listo', id: idTransaccion })}\n\n`);
-            } else {
-                res.write(`data: ${JSON.stringify({ estado: 'error' })}\n\n`);
-            }
-            res.end();
-        }, 1500);
-    });
+    } catch (err) {
+        console.error("Error creando job:", err);
+        res.status(500).send("Error interno");
+    }
 });
 
-app.get('/descargar-archivo/:id', (req, res) => {
-    console.log(archivosParaDescargar)
-    const nombreArchivo = archivosParaDescargar.get(req.params.id);
-    const rutaCompleta = path.join(TEMP_DIR, nombreArchivo || '');
+app.get('/job-status/:id', async (req, res) => {
+    try {
+        const job = await downloadQueue.getJob(req.params.id);
 
-    if (nombreArchivo && fs.existsSync(rutaCompleta)) {
-        res.download(rutaCompleta, nombreArchivo, (err) => {
+        if (!job) {
+            return res.status(404).json({ state: 'not_found' });
+        }
+
+        const state = await job.getState();
+
+        res.json({ state });
+
+    } catch (err) {
+        console.error("Error consultando estado:", err);
+        res.status(500).send("Error interno");
+    }
+});
+
+app.get('/descargar-archivo/:id', async (req, res) => {
+
+    const job = await downloadQueue.getJob(req.params.id);
+
+    if (!job) return res.status(404).send("Job no encontrado");
+
+    if (job.finishedOn === null)
+        return res.status(400).send("Aún no terminado");
+
+    const result = job.returnvalue;
+
+    if (!result || !result.filename)
+        return res.status(404).send("Archivo no disponible");
+
+    const rutaCompleta = path.join(__dirname, 'temp', result.filename);
+
+    if (fs.existsSync(rutaCompleta)) {
+
+        res.download(rutaCompleta, result.filename, (err) => {
             if (!err) {
                 try {
                     fs.unlinkSync(rutaCompleta);
-                    archivosParaDescargar.delete(req.params.id);
-                } catch(e) { console.error("Error borrando:", e); }
+                } catch (e) {
+                    console.error("Error borrando:", e);
+                }
             }
         });
+
     } else {
         res.status(404).send("Archivo no encontrado.");
     }

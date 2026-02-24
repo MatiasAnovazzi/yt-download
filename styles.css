@@ -1,0 +1,112 @@
+* {
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #f4f4f9;
+  margin: 0;
+}
+
+.card {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  background: #ff0000;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 4px;
+  width: 100%;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #ccc;
+}
+
+#wave {
+  margin-top: 1rem;
+}
+
+.wave-progress {
+  margin: 1.5rem auto;
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background: #e0e0e0;
+}
+
+.wave {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: #ff0000;
+  top: 100%;
+  left: -50%;
+  border-radius: 40%;
+  animation: wave 5s infinite linear;
+  transition: top 1.2s ease-in-out;
+}
+
+.wave:nth-child(2) {
+  animation-duration: 8s;
+  opacity: 0.5;
+}
+
+.percentage {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 10;
+}
+
+@keyframes wave {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+#status {
+  margin-top: 1rem;
+  font-weight: bold;
+  color: #555;
+}
+
+/* 🟢 Control de anuncios */
+.ad-container {
+  max-width: 360px;
+  width: 100%;
+  margin: 12px auto;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+}
