@@ -14,7 +14,11 @@ new Worker(
     console.log(`📥 Procesando job ${job.id}`);
 
     const outputTemplate = `/tmp/${job.id}-%(title)s.%(ext)s`;
+    const cookiesPath = '/tmp/cookies.txt';
 
+    if (process.env.COOKIES_CONTENT) {
+      require('fs').writeFileSync(cookiesPath, process.env.COOKIES_CONTENT);
+    }
     return new Promise((resolve, reject) => {
 
       const ytdlp = spawn('yt-dlp', [
@@ -29,6 +33,11 @@ new Worker(
         '--add-metadata',
 
         '--no-playlist',
+
+        '--cookies', cookiesPath,
+
+        '--user-agent',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
 
         '-o', outputTemplate
       ]);
